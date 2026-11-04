@@ -1,0 +1,43 @@
+# Reference repositories
+_references/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Dependencies and caches
+node_modules/
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.next/
+.nuxt/
+.turbo/
+.cache/
+.npm-cache/
+.npm-logs/
+outputs/meta/*.json
+
+# Build and generated output
+dist/
+build/
+coverage/
+*.log
+*.tmp
+*.temp
+*.generated.*
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
