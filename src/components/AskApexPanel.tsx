@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { AGENT_REGISTRY } from "../lib/agents";
 import { loadChat, loadRuns, loadRunsRemote, saveChat, saveRun, type AgentRun, type ChatMessage } from "../lib/agent-store";
 import { approveProposal, runAgentRequest } from "../lib/orchestrator";
-import { useOrganizationSettings } from "../lib/org-settings";
+import { formatMoney, useOrganizationSettings } from "../lib/org-settings";
 
 export function AskApexPanel() {
   const { activeOrganization, user } = useAuth();
@@ -80,6 +80,49 @@ export function AskApexPanel() {
               <div className="rounded-xl border border-slate-200 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Execution · {activeRun.status.replace(/_/g, " ")}</p>
                 <ol className="mt-2 space-y-1.5 text-xs text-slate-600">{activeRun.steps.map((step, index) => <li key={`${step.at}-${index}`}><span className="font-medium capitalize">{step.agent}</span>{step.tool ? ` · ${step.tool}` : ""} — {step.detail}</li>)}</ol>
+                {activeRun.tasks && activeRun.tasks.length > 1 && (
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Plan tasks</p>
+                    <ol className="mt-1.5 space-y-1 text-xs text-slate-600">{activeRun.tasks.map((task) => <li key={task.id} className="flex items-start justify-between gap-2"><span><span className="font-medium capitalize">{task.agent}</span> — {task.title}{task.detail ? <span className="block text-slate-500">{task.detail}</span> : null}</span><span className={`shrink-0 rounded-full px-2 py-0.5 font-medium ${task.status === "completed" ? "bg-emerald-50 text-emerald-700" : task.status === "failed" ? "bg-red-50 text-red-700" : task.status === "blocked" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{task.status}</span></li>)}</ol>
+                  </div>
+                )}
+                {activeRun.review && (
+                  <div className="mt-3 space-y-3 text-xs leading-5 text-slate-600">
+                    <div>
+                      <p className="font-semibold uppercase tracking-wide text-slate-400">Inquiry review · {activeRun.review.totalPending} pending</p>
+                      {activeRun.review.inquiries.map((item) => (
+                        <div key={item.inquiryId} className="mt-1.5 rounded-lg bg-slate-50 p-2">
+                          <p><span className="font-medium text-slate-800">{item.customerName ?? "Customer not linked"}</span> — {item.summary}</p>
+                          <p>Match: {item.match.status === "matched" ? `${item.match.product?.name} (${item.match.product?.sku}) · evidence: ${item.match.evidence.join(", ") || "name match"} · quantity ${item.match.quantity}${item.match.quantityStated ? "" : " (not stated)"}` : item.match.status === "ambiguous" ? `ambiguous — ${item.match.candidates.map((c) => c.name).join("; ")}` : "no product match"}</p>
+                          {item.missingInformation.length > 0 && <p className="text-amber-700">Missing: {item.missingInformation.join(" ")}</p>}
+                        </div>
+                      ))}
+                    </div>
+                    {activeRun.review.previews.length > 0 && (
+                      <div>
+                        <p className="font-semibold uppercase tracking-wide text-slate-400">Quotation proposals</p>
+                        {activeRun.review.previews.map((preview) => (
+                          <div key={preview.inquiryId} className="mt-1.5 rounded-lg bg-slate-50 p-2">
+                            <p className="font-medium text-slate-800">{preview.productName} ({preview.sku}) x{preview.quantity}</p>
+                            <p>Unit price {formatMoney(preview.unitPrice, preview.currency)} · Tax {preview.taxRate}% · Subtotal {formatMoney(preview.subtotal, preview.currency)} · Tax amount {formatMoney(preview.taxTotal, preview.currency)} · Total {formatMoney(preview.total, preview.currency)} · Recorded stock {preview.stockQty}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {activeRun.review.quality.length > 0 && (
+                      <div>
+                        <p className="font-semibold uppercase tracking-wide text-slate-400">Quality review</p>
+                        {activeRun.review.quality.map((entry) => (
+                          <div key={entry.inquiryId} className="mt-1.5 rounded-lg bg-slate-50 p-2">
+                            <p><span className={`font-semibold ${entry.check.verdict === "PASS" ? "text-emerald-700" : entry.check.verdict === "WARNING" ? "text-amber-700" : "text-red-700"}`}>{entry.check.verdict}</span> — {entry.check.reasons.join(" ")}</p>
+                            {entry.check.actions.length > 0 && <p>Corrective action: {entry.check.actions.join(" ")}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="rounded-lg bg-blue-50 p-2 text-blue-900">Final status: {activeRun.review.readyCount} ready for review · {activeRun.review.clarificationCount} requiring clarification · {activeRun.review.blockedCount} blocked. No quotation has been approved or sent.</p>
+                  </div>
+                )}
                 {activeRun.approvals.map((proposal) => (
                   <ApprovalCard key={proposal.id} run={activeRun} proposalId={proposal.id} busy={busy} onDecide={(decision, quantity) => void decide(activeRun, proposal.id, decision, quantity)} />
                 ))}

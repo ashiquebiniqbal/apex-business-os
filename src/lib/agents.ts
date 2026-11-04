@@ -27,23 +27,26 @@ export function getAgent(id: string): AgentProfile {
   return AGENT_REGISTRY.find((agent) => agent.id === id) ?? AGENT_REGISTRY[0];
 }
 
-export type QualityVerdict = { verdict: "PASS" | "WARNING" | "FAIL"; reasons: string[] };
+export type QualityVerdict = { verdict: "PASS" | "WARNING" | "FAIL"; reasons: string[]; actions: string[] };
 
 /** Pure quotation proposal check used by the Quality Checker agent. */
-export function checkQuotationProposal(input: { productName?: string | null; unitPrice?: number | null; taxRate?: number | null; quantity: number; currency?: string | null; customerLinked: boolean }): QualityVerdict {
+export function checkQuotationProposal(input: { productName?: string | null; unitPrice?: number | null; taxRate?: number | null; quantity: number; currency?: string | null; customerLinked: boolean; stockQty?: number | null; quantityStated?: boolean }): QualityVerdict {
   const reasons: string[] = [];
-  if (!input.productName) reasons.push("No matching product with a recorded price was found.");
-  if (input.unitPrice == null || !Number.isFinite(input.unitPrice) || input.unitPrice < 0) reasons.push("Product has no valid recorded unit price.");
-  if (!Number.isFinite(input.quantity) || input.quantity <= 0) reasons.push("Quantity must be positive.");
-  if (!input.currency || !/^[A-Z]{3}$/.test(input.currency)) reasons.push("Organization currency is missing or invalid.");
-  if (reasons.length) return { verdict: "FAIL", reasons };
+  const actions: string[] = [];
+  if (!input.productName) { reasons.push("No matching product with a recorded price was found."); actions.push("Narrow the product lookup to one active product, or create the product record first."); }
+  if (input.unitPrice == null || !Number.isFinite(input.unitPrice) || input.unitPrice < 0) { reasons.push("Product has no valid recorded unit price."); actions.push("Record a valid unit price on the product before quoting."); }
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) { reasons.push("Quantity must be positive."); actions.push("Confirm a positive quantity with the customer."); }
+  if (!input.currency || !/^[A-Z]{3}$/.test(input.currency)) { reasons.push("Organization currency is missing or invalid."); actions.push("Set the organization currency in Settings."); }
+  if (input.stockQty != null && Number.isFinite(input.quantity) && input.quantity > input.stockQty) { reasons.push(`Recorded stock is ${input.stockQty}, lower than the requested quantity ${input.quantity}.`); actions.push(`Reduce the quantity to at most ${input.stockQty} or replenish stock before quoting.`); }
+  if (reasons.length) return { verdict: "FAIL", reasons, actions };
   try {
     const totals = calculateQuote(Number(input.unitPrice), Number(input.taxRate ?? 0), input.quantity);
-    if (totals.total <= 0) reasons.push("Calculated total is zero; confirm this is intentional.");
-  } catch { return { verdict: "FAIL", reasons: ["Quotation calculation failed for the recorded price, tax, or quantity."] }; }
-  if (!input.customerLinked) reasons.push("No customer is linked to the inquiry; the quotation will have no customer.");
-  if ((input.taxRate ?? 0) === 0) reasons.push("Recorded tax rate is 0%; confirm no tax applies.");
-  return { verdict: reasons.length ? "WARNING" : "PASS", reasons: reasons.length ? reasons : ["Price, tax, quantity, and currency all come from organization records."] };
+    if (totals.total <= 0) { reasons.push("Calculated total is zero; confirm this is intentional."); actions.push("Confirm the zero total with the customer before approval."); }
+  } catch { return { verdict: "FAIL", reasons: ["Quotation calculation failed for the recorded price, tax, or quantity."], actions: ["Check the recorded price, tax rate, and quantity, then re-run."] }; }
+  if (!input.customerLinked) { reasons.push("No customer is linked to the inquiry; the quotation will have no customer."); actions.push("Link the correct customer record to the inquiry."); }
+  if (input.quantityStated === false) { reasons.push("Quantity was not stated in the inquiry; the preview uses 1."); actions.push("Confirm the quantity with the customer before approval."); }
+  if ((input.taxRate ?? 0) === 0) { reasons.push("Recorded tax rate is 0%; confirm no tax applies."); actions.push("Confirm the tax treatment or record the product tax rate."); }
+  return { verdict: reasons.length ? "WARNING" : "PASS", reasons: reasons.length ? reasons : ["Price, tax, quantity, and currency all come from organization records."], actions };
 }
 
 const ROUTES: Array<{ agent: string; keywords: string[] }> = [

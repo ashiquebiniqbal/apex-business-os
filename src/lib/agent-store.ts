@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { PlanTask, QuotationReview } from "./orchestration";
 
 export type AgentRunStatus = "pending" | "planning" | "running" | "awaiting_approval" | "completed" | "failed" | "cancelled";
 export type AgentStep = { agent: string; tool?: string; status: string; detail: string; at: string };
@@ -11,6 +12,8 @@ export type AgentRun = {
   id: string; orgId: string; userEmail: string; userId?: string; prompt: string; agents: string[];
   provider: string; status: AgentRunStatus; steps: AgentStep[]; approvals: ApprovalProposal[];
   result: string; error?: string; createdAt: string;
+  tasks?: PlanTask[];
+  review?: QuotationReview;
 };
 
 function read<T>(key: string, fallback: T): T {
