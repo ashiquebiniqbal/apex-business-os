@@ -2,6 +2,29 @@
 
 Independent business operations application built with React, Vite, TypeScript, and Supabase.
 
+## Features
+
+**Sales & operations (organization-scoped, role-based)**
+
+- Dashboard with live workspace metrics, onboarding checklist, open inquiry queue, and audited recent activity.
+- Customers, products & services (recorded price, tax rate, and stock), and suppliers.
+- Inquiry inbox, quotations with lines and database-calculated totals, sales opportunities, and tasks & follow-ups.
+- Reports with live organization summaries — every figure comes from current records.
+
+**Governed Meta AI workflows**
+
+- AI Assistant: “Analyze with Meta AI” extracts structured intent from an inquiry, looks up the real customer and product, and shows a deterministic quotation preview. Ambiguous or unmatched requests return a clarification with the exact missing information. A manager, admin, or owner must approve before any quotation, opportunity, task, or audit record is written; approval replay is idempotent.
+- Ask Apex: ten typed agents (Orchestrator, Worker, Sales, Finance, Operations, Quality Checker, Admin, Writer, Marketing, Reporter) over organization-scoped tools. Reads run under the user's permissions; high-impact writes require an approval card. Agent runs and instructions persist in Supabase.
+- AI Activity: per-request model, token, cost, and routing ledger with a guarded budget hard limit.
+- Model routing: automatic or manual selection among verified Meta models, with a Settings connection test that proves a live Meta request.
+
+**Platform & safety**
+
+- Supabase Auth with organization membership and owner/admin/manager/staff roles; row-level security on business data.
+- Four Edge Functions (`inquiry-workflow`, `approve-inquiry-workflow`, `seed-demo-workspace`, `model-catalog`); secrets stay server-side, never in browser variables.
+- Prices, taxes, stock, and totals always come from database records — the AI never invents business data, and there is no silent fallback when Meta fails.
+- Settings for workspace, company profile, financial defaults, demo workspace load, and Meta configuration status.
+
 ## Local development
 
 Requirements: Node.js 24+ and npm 11+.

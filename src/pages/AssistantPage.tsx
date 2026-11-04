@@ -56,7 +56,8 @@ export function AssistantPage() {
       const result = await proposeInquiryWorkflow({ ...form, quantity: Number(form.quantity) });
       setProposal(result);
       if (result.status === "needs_clarification") {
-        setNotice("The server needs clarification before a proposal can be created. See the missing information below.");
+        const missing = [...(result.missing_information ?? []), ...(result.proposal?.missing_information ?? [])];
+        setNotice(missing.length ? `Clarification required before a proposal can be created: ${missing.join(" ")}` : "The server needs clarification before a proposal can be created. See the missing information below.");
       } else if (linkedInquiryId && supabase && activeOrganization) {
         await supabase.from("inquiries").update({ status: "processing" }).eq("id", linkedInquiryId).eq("org_id", activeOrganization.id);
       }

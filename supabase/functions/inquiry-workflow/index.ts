@@ -5,11 +5,14 @@ import { discoverMetaModels, loadRoutingSettings, routeMetaTask } from "../_shar
 import { resolveOrganizationCurrency } from "../_shared/currency.ts";
 import { conciseRetryInstructions, INQUIRY_MAX_OUTPUT_TOKENS } from "../_shared/meta-response.ts";
 import { failUsage, getAdminClient, reconcileUsage, reserveUsage } from "../_shared/usage.ts";
+import { corsHeadersForRequest } from "../_shared/cors.ts";
 
-const corsHeaders = { "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") ?? "http://127.0.0.1:5173", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-request-id", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+// Set per request at the top of the handler; json() reads it for the response.
+let corsHeaders: Record<string, string> = { "Access-Control-Allow-Origin": "http://127.0.0.1:5173" };
 type Input = { inquiry: string; customerName: string; customerEmail?: string; productQuery: string; quantity: number; additionalRequirements?: string };
 
 Deno.serve(async (req) => {
+  corsHeaders = corsHeadersForRequest(req, Deno.env.get("APP_ORIGIN"));
   const requestId = req.headers.get("x-request-id")?.trim() || crypto.randomUUID();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {

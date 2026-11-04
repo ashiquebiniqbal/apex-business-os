@@ -2,9 +2,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.118.0";
 import { FALLBACK_CURRENCY, resolveOrganizationCurrency } from "../_shared/currency.ts";
 import { getAdminClient } from "../_shared/usage.ts";
 
-const corsHeaders = { "Access-Control-Allow-Origin": Deno.env.get("APP_ORIGIN") ?? "http://127.0.0.1:5173", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-request-id", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+import { corsHeadersForRequest } from "../_shared/cors.ts";
+
+// Set per request at the top of the handler; json() reads it for the response.
+let corsHeaders: Record<string, string> = { "Access-Control-Allow-Origin": "http://127.0.0.1:5173" };
 
 Deno.serve(async (req) => {
+  corsHeaders = corsHeadersForRequest(req, Deno.env.get("APP_ORIGIN"));
   const requestId = req.headers.get("x-request-id")?.trim() || crypto.randomUUID();
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {

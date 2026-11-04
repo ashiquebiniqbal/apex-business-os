@@ -61,8 +61,29 @@ export type WorkflowProposal = {
 export async function proposeInquiryWorkflow(input: InquiryWorkflowInput) {
   if (!supabase) throw new Error("Connect Supabase before running the server-side workflow.");
   const { data, error } = await supabase.functions.invoke("inquiry-workflow", { body: input });
-  if (error) throw await toWorkflowRequestError(error, "Inquiry workflow could not be completed.");
+  if (error) {
+    const clarification = await parseNeedsClarification(error);
+    if (clarification) return clarification;
+    throw await toWorkflowRequestError(error, "Inquiry workflow could not be completed.");
+  }
   return data as WorkflowProposal;
+}
+
+export async function parseNeedsClarification(error: unknown): Promise<WorkflowProposal | null> {
+  const response = errorResponse(error);
+  if (!response || response.status !== 409 || typeof response.json !== "function") return null;
+  try {
+    const body = await response.clone().json() as Partial<WorkflowProposal> | null;
+    return body?.status === "needs_clarification" ? (body as WorkflowProposal) : null;
+  } catch {
+    return null;
+  }
+}
+
+function errorResponse(error: unknown): Response | undefined {
+  return typeof error === "object" && error !== null && "context" in error
+    ? (error as { context?: Response }).context
+    : undefined;
 }
 
 export async function approveInquiryWorkflow(workflowRunId: string) {
@@ -87,11 +108,13 @@ export async function loadDemoWorkspace() {
   return data as DemoWorkspaceResult;
 }
 
-async function toWorkflowRequestError(error: unknown, fallback: string): Promise<WorkflowRequestError> {
+export async function toWorkflowRequestError(error: unknown, fallback: string): Promise<WorkflowRequestError> {
   const fallbackError = error instanceof Error ? error.message : fallback;
-  const response = typeof error === "object" && error !== null && "context" in error
-    ? (error as { context?: Response }).context
-    : undefined;
+  const errorName = typeof error === "object" && error !== null && "name" in error ? String((error as { name?: unknown }).name) : "";
+  if (errorName === "FunctionsFetchError" || fallbackError.includes("Failed to send a request to the Edge Function")) {
+    return new WorkflowRequestError("The app could not reach the Edge Function, so no request reached the server. Check your connection, open the app from http://127.0.0.1:5173 or http://localhost:5173, and retry. If it keeps failing, redeploy the function and confirm its CORS allowlist includes this origin.");
+  }
+  const response = errorResponse(error);
   if (!response || typeof response.json !== "function") return new WorkflowRequestError(fallbackError);
   try {
     const body = await response.clone().json() as { error?: unknown; detail?: unknown; request_id?: unknown };
